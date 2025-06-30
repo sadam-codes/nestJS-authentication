@@ -49,6 +49,12 @@ export class User extends Model {
     defaultValue: null,
   })
   declare otp: string | null;
+  @AllowNull(true)
+  @Column({
+    type: DataType.STRING,
+    defaultValue: 'active', 
+  })
+  declare status: 'pending' | 'active';
 
   @AllowNull(true)
   @Column({

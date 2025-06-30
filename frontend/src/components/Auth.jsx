@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+
 const Auth = () => {
   const navigate = useNavigate();
   const [view, setView] = useState('signup');
   const [step, setStep] = useState('send');
   const [errors, setErrors] = useState({});
+  const [signupStep, setSignupStep] = useState('send');
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -66,15 +68,38 @@ const Auth = () => {
     e.preventDefault();
     if (!validate()) return;
     try {
-      await axios.post('http://localhost:3000/auth/register', {
+      // Step 1: Send OTP
+      await axios.post('http://localhost:3000/auth/register/send-otp', {
         name: form.name,
         email: form.email,
         password: form.password,
       });
+      toast.success('OTP sent to your email');
+      setSignupStep('verify');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send OTP');
+    }
+  };
+
+  const handleVerifyRegister = async (e) => {
+    e.preventDefault();
+    if (!form.otp || !/^\d{6}$/.test(form.otp)) {
+      setErrors({ otp: 'OTP must be 6 digits' });
+      return;
+    }
+    try {
+      await axios.post('http://localhost:3000/auth/register/verify-otp', {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        otp: form.otp,
+      });
       toast.success('Registration successful');
       setView('login');
+      setSignupStep('send');
+      setForm({ ...form, otp: '' });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Registration failed');
+      toast.error(err.response?.data?.message || 'OTP verification failed');
     }
   };
 
@@ -131,21 +156,24 @@ const Auth = () => {
         {view === 'signup' && (
           <>
             <h2 className="text-xl font-bold mb-4">Signup</h2>
-            <form onSubmit={handleRegister} className="space-y-3">
+            <form onSubmit={signupStep === 'send' ? handleRegister : handleVerifyRegister} className="space-y-3">
               <input
                 name="name"
                 placeholder="Name"
                 className="w-full border p-2"
                 onChange={handleChange}
+                value={form.name}
+                disabled={signupStep === 'verify'}
               />
               {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
-
               <input
                 name="email"
                 type="email"
                 placeholder="Email"
                 className="w-full border p-2"
                 onChange={handleChange}
+                value={form.email}
+                disabled={signupStep === 'verify'}
               />
               {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
 
@@ -155,20 +183,35 @@ const Auth = () => {
                 placeholder="Password"
                 className="w-full border p-2"
                 onChange={handleChange}
+                value={form.password}
+                disabled={signupStep === 'verify'}
               />
               {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+              {signupStep === 'verify' && (
+                <>
+                  <input
+                    name="otp"
+                    placeholder="Enter OTP"
+                    className="w-full border p-2"
+                    onChange={handleChange}
+                    value={form.otp}
+                  />
+                  {errors.otp && <p className="text-red-500 text-sm">{errors.otp}</p>}
+                </>
+              )}
 
-              <button className="w-full bg-emerald-600 text-white py-2 rounded">Signup</button>
+              <button className="w-full bg-emerald-600 text-white py-2 rounded cursor-pointer">
+                {signupStep === 'send' ? 'Signup' : 'Verify OTP'}
+              </button>
             </form>
             <p className="text-center mt-4 text-sm">
               Already have an account?{' '}
-              <button className="text-blue-600" onClick={() => setView('login')}>
+              <button className="text-blue-600 cursor-pointer" onClick={() => { setView('login'); setSignupStep('send'); }}>
                 Login
               </button>
             </p>
           </>
         )}
-
         {view === 'login' && (
           <>
             <h2 className="text-xl font-bold mb-4">Login</h2>
@@ -190,17 +233,16 @@ const Auth = () => {
                 onChange={handleChange}
               />
               {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
-
-              <button className="w-full bg-emerald-600 text-white py-2 rounded">Login</button>
+              <button className="w-full bg-emerald-600 text-white py-2 rounded cursor-pointer">Login</button>
             </form>
             <p className="text-center mt-2 text-sm">
-              <button className="text-blue-600" onClick={() => setView('forgot')}>
+              <button className="text-blue-600 cursor-pointer" onClick={() => setView('forgot')}>
                 Forgot Password?
               </button>
             </p>
             <p className="text-center mt-4 text-sm">
               Don’t have an account?{' '}
-              <button className="text-emerald-600" onClick={() => setView('signup')}>
+              <button className="text-emerald-600 cursor-pointer" onClick={() => setView('signup')}>
                 Signup
               </button>
             </p>
@@ -244,14 +286,13 @@ const Auth = () => {
                   )}
                 </>
               )}
-
-              <button className="w-full bg-emerald-600 text-white py-2 rounded">
+              <button className="w-full bg-emerald-600 text-white py-2 rounded cursor-pointer">
                 {step === 'send' ? 'Send OTP' : 'Reset Password'}
               </button>
             </form>
             <p className="text-center mt-4 text-sm">
               Remember password?{' '}
-              <button onClick={() => setView('login')} className="text-emerald-600">
+              <button onClick={() => setView('login')} className="text-emerald-600 cursor-pointer">
                 Back to Login
               </button>
             </p>

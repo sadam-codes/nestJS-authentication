@@ -22,7 +22,23 @@ export class AuthController {
   register(@Body() dto: { name: string; email: string; password: string }) {
     return this.authService.register(dto.name, dto.email, dto.password);
   }
-
+  @Post('/register/send-otp')
+  sendRegisterOtp(
+    @Body() dto: { name: string; email: string; password: string },
+  ) {
+    return this.authService.register(dto.name, dto.email, dto.password);
+  }
+  @Post('/register/verify-otp')
+  verifyRegisterOtp(
+    @Body() dto: { name: string; email: string; password: string; otp: string },
+  ) {
+    return this.authService.register(
+      dto.name,
+      dto.email,
+      dto.password,
+      dto.otp,
+    );
+  }
   @Post('/login')
   login(@Body() dto: { email: string; password: string }) {
     return this.authService.login(dto.email, dto.password);

@@ -17,24 +17,74 @@ export class AuthService {
     @InjectModel(User) private userModel: typeof User,
     private jwtService: JwtService,
   ) {}
+  // Register
+  async register(name: string, email: string, password: string, otp?: string) {
+    if (!otp) {
+      const userExists = await this.userModel.findOne({ where: { email } });
+      if (userExists) {
+        throw new BadRequestException('Email already exists');
+      }
 
-  async register(name: string, email: string, password: string) {
-    const userExists = await this.userModel.findOne({ where: { email } });
-    if (userExists) {
-      throw new BadRequestException('Email already exists');
+      const generatedOtp = Math.floor(
+        100000 + Math.random() * 900000,
+      ).toString();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      await this.userModel.create({
+        name,
+        email,
+        password,
+        role: 'user',
+        otp: generatedOtp,
+        otpExpiry: expiresAt,
+        status: 'pending',
+      });
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Your Registration OTP Code',
+        text: `Your OTP code is ${generatedOtp}. It expires in 5 minutes.`,
+      };
+      await transporter.sendMail(mailOptions);
+
+      return { message: 'OTP sent to email' };
     }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await this.userModel.create({
-      name,
-      email,
-      password: hashedPassword,
-      role: 'user',
+    const pendingUser = await this.userModel.findOne({
+      where: { email, status: 'pending' },
     });
+    if (!pendingUser) {
+      throw new BadRequestException(
+        'Registration not found or already verified',
+      );
+    }
+    if (
+      !pendingUser.otp ||
+      pendingUser.otp !== otp ||
+      !pendingUser.otpExpiry ||
+      pendingUser.otpExpiry.getTime() < Date.now()
+    ) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+    const hashedPassword = await bcrypt.hash(pendingUser.password, 10);
+    await pendingUser.update({
+      password: hashedPassword,
+      otp: null,
+      otpExpiry: null,
+      status: 'active',
+    });
+
     return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
+      id: pendingUser.id,
+      name: pendingUser.name,
+      email: pendingUser.email,
+      role: pendingUser.role,
       message: 'Registered successfully',
     };
   }
@@ -133,7 +183,6 @@ export class AuthService {
     if (!user) {
       throw new BadRequestException('User with this email does not exist');
     }
-
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     await user.update({ otp, otpExpiry: expiresAt });
