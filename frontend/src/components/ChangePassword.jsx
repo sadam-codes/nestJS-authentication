@@ -31,7 +31,7 @@ const ChangePassword = () => {
             toast.success('Password changed successfully');
             setOldPassword('');
             setNewPassword('');
-            navigate('/'); // Redirect to home or wherever you want
+            navigate('/');
         } catch (err) {
             toast.error(
                 err?.response?.data?.message || 'Failed to change password'
