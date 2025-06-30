@@ -6,6 +6,7 @@ import Home from './components/Home';
 import Admin from './components/Admin';
 import ChangePassword from "./components/ChangePassword"
 import ProtectedRoute from './components/ProtectedRoute';
+import RegOTP from './components/RegOTP';
 
 const App = () => {
   return (
@@ -13,6 +14,7 @@ const App = () => {
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/change-password" element={<ChangePassword />} />
+        <Route path="/reg-otp" element={<RegOTP />} />
         <Route
           path="/home"
           element={

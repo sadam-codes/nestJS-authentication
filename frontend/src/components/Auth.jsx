@@ -5,15 +5,13 @@ import { useNavigate } from 'react-router-dom';
 
 const Auth = () => {
   const navigate = useNavigate();
-  const [view, setView] = useState('signup');
+  const [view, setView] = useState('login');
   const [step, setStep] = useState('send');
   const [errors, setErrors] = useState({});
-  const [signupStep, setSignupStep] = useState('send');
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
-    otp: '',
     newPassword: '',
   });
 
@@ -50,16 +48,13 @@ const Auth = () => {
       else if (!emailRegex.test(form.email)) newErrors.email = 'Enter a valid email address';
 
       if (step === 'reset') {
-        if (!form.otp.trim()) newErrors.otp = 'OTP required';
-        else if (!/^\d{6}$/.test(form.otp)) newErrors.otp = 'OTP must be 6 digits';
-
+        if (!form.otp || !/^\d{6}$/.test(form.otp)) newErrors.otp = 'OTP must be 6 digits';
         if (!form.newPassword) newErrors.newPassword = 'New password is required';
         else if (!passwordRegex.test(form.newPassword))
           newErrors.newPassword =
             'Password must be at least 8 characters, include uppercase, lowercase, number, and special character';
       }
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -68,38 +63,15 @@ const Auth = () => {
     e.preventDefault();
     if (!validate()) return;
     try {
-      // Step 1: Send OTP
       await axios.post('http://localhost:3000/auth/register/send-otp', {
         name: form.name,
         email: form.email,
         password: form.password,
       });
       toast.success('OTP sent to your email');
-      setSignupStep('verify');
+      navigate('/reg-otp', { state: { name: form.name, email: form.email, password: form.password } });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to send OTP');
-    }
-  };
-
-  const handleVerifyRegister = async (e) => {
-    e.preventDefault();
-    if (!form.otp || !/^\d{6}$/.test(form.otp)) {
-      setErrors({ otp: 'OTP must be 6 digits' });
-      return;
-    }
-    try {
-      await axios.post('http://localhost:3000/auth/register/verify-otp', {
-        name: form.name,
-        email: form.email,
-        password: form.password,
-        otp: form.otp,
-      });
-      toast.success('Registration successful');
-      setView('login');
-      setSignupStep('send');
-      setForm({ ...form, otp: '' });
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'OTP verification failed');
     }
   };
 
@@ -156,14 +128,13 @@ const Auth = () => {
         {view === 'signup' && (
           <>
             <h2 className="text-xl font-bold mb-4">Signup</h2>
-            <form onSubmit={signupStep === 'send' ? handleRegister : handleVerifyRegister} className="space-y-3">
+            <form onSubmit={handleRegister} className="space-y-3">
               <input
                 name="name"
                 placeholder="Name"
                 className="w-full border p-2"
                 onChange={handleChange}
                 value={form.name}
-                disabled={signupStep === 'verify'}
               />
               {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
               <input
@@ -173,7 +144,6 @@ const Auth = () => {
                 className="w-full border p-2"
                 onChange={handleChange}
                 value={form.email}
-                disabled={signupStep === 'verify'}
               />
               {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
 
@@ -184,29 +154,16 @@ const Auth = () => {
                 className="w-full border p-2"
                 onChange={handleChange}
                 value={form.password}
-                disabled={signupStep === 'verify'}
               />
               {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
-              {signupStep === 'verify' && (
-                <>
-                  <input
-                    name="otp"
-                    placeholder="Enter OTP"
-                    className="w-full border p-2"
-                    onChange={handleChange}
-                    value={form.otp}
-                  />
-                  {errors.otp && <p className="text-red-500 text-sm">{errors.otp}</p>}
-                </>
-              )}
 
               <button className="w-full bg-emerald-600 text-white py-2 rounded cursor-pointer">
-                {signupStep === 'send' ? 'Signup' : 'Verify OTP'}
+                Signup
               </button>
             </form>
             <p className="text-center mt-4 text-sm">
               Already have an account?{' '}
-              <button className="text-blue-600 cursor-pointer" onClick={() => { setView('login'); setSignupStep('send'); }}>
+              <button className="text-blue-600 cursor-pointer" onClick={() => { setView('login'); }}>
                 Login
               </button>
             </p>
@@ -263,7 +220,6 @@ const Auth = () => {
                 onChange={handleChange}
               />
               {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
-
               {step === 'reset' && (
                 <>
                   <input
