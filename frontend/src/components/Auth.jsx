@@ -7,12 +7,65 @@ const Auth = () => {
   const navigate = useNavigate();
   const [view, setView] = useState('signup');
   const [step, setStep] = useState('send');
-  const [form, setForm] = useState({ name: '', email: '', password: '', otp: '', newPassword: '' });
+  const [errors, setErrors] = useState({});
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    otp: '',
+    newPassword: '',
+  });
 
-  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleRegister = async e => {
+  const validate = () => {
+    const newErrors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+
+    if (view === 'signup') {
+      if (!form.name.trim()) newErrors.name = 'Name is required';
+      else if (form.name.length > 50) newErrors.name = 'Name is too long';
+
+      if (!form.email.trim()) newErrors.email = 'Email is required';
+      else if (!emailRegex.test(form.email)) newErrors.email = 'Enter a valid email address';
+
+      if (!form.password) newErrors.password = 'Password is required';
+      else if (!passwordRegex.test(form.password))
+        newErrors.password =
+          'Password must be at least 8 characters, include uppercase, lowercase, number, and special character';
+    }
+
+    if (view === 'login') {
+      if (!form.email.trim()) newErrors.email = 'Email is required';
+      else if (!emailRegex.test(form.email)) newErrors.email = 'Enter a valid email address';
+
+      if (!form.password) newErrors.password = 'Password is required';
+    }
+
+    if (view === 'forgot') {
+      if (!form.email.trim()) newErrors.email = 'Email is required';
+      else if (!emailRegex.test(form.email)) newErrors.email = 'Enter a valid email address';
+
+      if (step === 'reset') {
+        if (!form.otp.trim()) newErrors.otp = 'OTP required';
+        else if (!/^\d{6}$/.test(form.otp)) newErrors.otp = 'OTP must be 6 digits';
+
+        if (!form.newPassword) newErrors.newPassword = 'New password is required';
+        else if (!passwordRegex.test(form.newPassword))
+          newErrors.newPassword =
+            'Password must be at least 8 characters, include uppercase, lowercase, number, and special character';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleRegister = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
     try {
       await axios.post('http://localhost:3000/auth/register', {
         name: form.name,
@@ -26,8 +79,9 @@ const Auth = () => {
     }
   };
 
-  const handleLogin = async e => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
     try {
       const res = await axios.post('http://localhost:3000/auth/login', {
         email: form.email,
@@ -42,8 +96,9 @@ const Auth = () => {
     }
   };
 
-  const handleSendOtp = async e => {
+  const handleSendOtp = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
     try {
       const res = await axios.post('http://localhost:3000/auth/forgot-password', {
         email: form.email,
@@ -55,8 +110,9 @@ const Auth = () => {
     }
   };
 
-  const handleResetPassword = async e => {
+  const handleResetPassword = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
     try {
       const res = await axios.post('http://localhost:3000/auth/reset-password', {
         email: form.email,
@@ -77,13 +133,39 @@ const Auth = () => {
           <>
             <h2 className="text-xl font-bold mb-4">Signup</h2>
             <form onSubmit={handleRegister} className="space-y-3">
-              <input name="name" placeholder="Name" className="w-full border p-2" onChange={handleChange} required />
-              <input name="email" type="email" placeholder="Email" className="w-full border p-2" onChange={handleChange} required />
-              <input name="password" type="password" placeholder="Password" className="w-full border p-2" onChange={handleChange} required />
+              <input
+                name="name"
+                placeholder="Name"
+                className="w-full border p-2"
+                onChange={handleChange}
+              />
+              {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+
+              <input
+                name="email"
+                type="email"
+                placeholder="Email"
+                className="w-full border p-2"
+                onChange={handleChange}
+              />
+              {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+
+              <input
+                name="password"
+                type="password"
+                placeholder="Password"
+                className="w-full border p-2"
+                onChange={handleChange}
+              />
+              {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+
               <button className="w-full bg-emerald-600 text-white py-2 rounded">Signup</button>
             </form>
             <p className="text-center mt-4 text-sm">
-              Already have an account? <button className="text-blue-600" onClick={() => setView('login')}>Login</button>
+              Already have an account?{' '}
+              <button className="text-blue-600" onClick={() => setView('login')}>
+                Login
+              </button>
             </p>
           </>
         )}
@@ -92,35 +174,87 @@ const Auth = () => {
           <>
             <h2 className="text-xl font-bold mb-4">Login</h2>
             <form onSubmit={handleLogin} className="space-y-3">
-              <input name="email" type="email" placeholder="Email" className="w-full border p-2" onChange={handleChange} required />
-              <input name="password" type="password" placeholder="Password" className="w-full border p-2" onChange={handleChange} required />
+              <input
+                name="email"
+                type="email"
+                placeholder="Email"
+                className="w-full border p-2"
+                onChange={handleChange}
+              />
+              {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+
+              <input
+                name="password"
+                type="password"
+                placeholder="Password"
+                className="w-full border p-2"
+                onChange={handleChange}
+              />
+              {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+
               <button className="w-full bg-emerald-600 text-white py-2 rounded">Login</button>
             </form>
             <p className="text-center mt-2 text-sm">
-              <button className="text-blue-600" onClick={() => setView('forgot')}>Forgot Password?</button>
+              <button className="text-blue-600" onClick={() => setView('forgot')}>
+                Forgot Password?
+              </button>
             </p>
             <p className="text-center mt-4 text-sm">
-              Don’t have an account? <button className="text-emerald-600" onClick={() => setView('signup')}>Signup</button>
+              Don’t have an account?{' '}
+              <button className="text-emerald-600" onClick={() => setView('signup')}>
+                Signup
+              </button>
             </p>
           </>
         )}
 
         {view === 'forgot' && (
           <>
-            <form onSubmit={step === 'send' ? handleSendOtp : handleResetPassword} className="space-y-4">
-              <input type="email" name="email" placeholder="Email" className="w-full border p-2" onChange={handleChange} required />
+            <form
+              onSubmit={step === 'send' ? handleSendOtp : handleResetPassword}
+              className="space-y-4"
+            >
+              <input
+                type="email"
+                name="email"
+                placeholder="Email"
+                className="w-full border p-2"
+                onChange={handleChange}
+              />
+              {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+
               {step === 'reset' && (
                 <>
-                  <input name="otp" placeholder="OTP" className="w-full border p-2" onChange={handleChange} required />
-                  <input name="newPassword" type="password" placeholder="New Password" className="w-full border p-2" onChange={handleChange} required />
+                  <input
+                    name="otp"
+                    placeholder="OTP"
+                    className="w-full border p-2"
+                    onChange={handleChange}
+                  />
+                  {errors.otp && <p className="text-red-500 text-sm">{errors.otp}</p>}
+
+                  <input
+                    name="newPassword"
+                    type="password"
+                    placeholder="New Password"
+                    className="w-full border p-2"
+                    onChange={handleChange}
+                  />
+                  {errors.newPassword && (
+                    <p className="text-red-500 text-sm">{errors.newPassword}</p>
+                  )}
                 </>
               )}
+
               <button className="w-full bg-emerald-600 text-white py-2 rounded">
                 {step === 'send' ? 'Send OTP' : 'Reset Password'}
               </button>
             </form>
             <p className="text-center mt-4 text-sm">
-              Remember password? <button onClick={() => setView('login')} className="text-emerald-600">Back to Login</button>
+              Remember password?{' '}
+              <button onClick={() => setView('login')} className="text-emerald-600">
+                Back to Login
+              </button>
             </p>
           </>
         )}

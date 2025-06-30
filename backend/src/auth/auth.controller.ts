@@ -1,72 +1,67 @@
 import {
   Controller,
-  Get,
   Post,
   Body,
-  UnauthorizedException,
+  Get,
+  Patch,
+  Param,
+  Req,
+  UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { Param, Patch, Req, UseGuards } from '@nestjs/common';
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { User } from 'src/models/user.model';
+import { Roles } from './roles.decorator';
+import { RolesGuard } from './roles.guard';
 
-@Injectable()
-class JwtAuthGuard extends AuthGuard('jwt') implements CanActivate {
-  canActivate(context: ExecutionContext) {
-    return super.canActivate(context);
-  }
-}
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @UseGuards(JwtAuthGuard)
-  @Get('/getall')
-  getAll() {
-    return this.authService.getAll();
-  }
-
   @Post('/register')
-  register(@Body() body: { name: string; email: string; password: string }) {
-    return this.authService.register(body.name, body.email, body.password);
+  register(@Body() dto: { name: string; email: string; password: string }) {
+    return this.authService.register(dto.name, dto.email, dto.password);
   }
 
   @Post('/login')
-  login(@Body() body: { email: string; password: string }) {
-    return this.authService.login(body.email, body.password);
+  login(@Body() dto: { email: string; password: string }) {
+    return this.authService.login(dto.email, dto.password);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('/me')
+  profile(@Req() req) {
+    return req.user;
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @Get('/users')
+  getAllUsers() {
+    return this.authService.getAll();
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
   @Patch('/admin-update/:userId')
-  @UseGuards(JwtAuthGuard)
   async adminUpdate(
     @Req() req,
     @Param('userId') userId: number,
-    @Body()
-    body: { name?: string; email?: string; password?: string },
+    @Body() body: any,
   ) {
-    if (req.user.role !== 'admin') {
-      throw new UnauthorizedException('Only admins can perform this action');
-    }
-    const adminId = req.user.id;
     return this.authService.updateRecord(
-      adminId,
+      req.user.id,
       userId,
       body.name,
       body.email,
       body.password,
+      body.role,
     );
   }
-  @Post('/forgot-password')
-  sendOtp(@Body('email') email: string) {
-    return this.authService.sendOtp(email);
-  }
-
-  @Post('/reset-password')
-  resetPassword(
-    @Body('email') email: string,
-    @Body('otp') otp: string,
-    @Body('newPassword') newPassword: string,
-  ) {
-    return this.authService.resetPassword(email, otp, newPassword);
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @Delete('/users/:id')
+  async deleteUser(@Param('id') id: number) {
+    return this.authService.deleteUser(id);
   }
 }

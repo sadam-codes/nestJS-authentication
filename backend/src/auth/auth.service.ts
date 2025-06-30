@@ -45,6 +45,7 @@ export class AuthService {
     name?: string,
     email?: string,
     password?: string,
+    role?: 'user' | 'admin',
   ) {
     const adminUser = await this.userModel.findByPk(adminId);
     if (!adminUser || adminUser.role !== 'admin') {
@@ -60,6 +61,7 @@ export class AuthService {
     if (name) updateData.name = name;
     if (email) updateData.email = email;
     if (password) updateData.password = await bcrypt.hash(password, 10);
+    if (role) updateData.role = role;
 
     await user.update(updateData);
 
@@ -72,6 +74,12 @@ export class AuthService {
         role: user.role,
       },
     };
+  }
+  async deleteUser(id: number) {
+    const user = await this.userModel.findByPk(id);
+    if (!user) throw new BadRequestException('User not found');
+    await user.destroy();
+    return { message: 'User deleted successfully' };
   }
   async getAll() {
     return this.userModel.findAll();
