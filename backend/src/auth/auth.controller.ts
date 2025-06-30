@@ -27,7 +27,31 @@ export class AuthController {
   login(@Body() dto: { email: string; password: string }) {
     return this.authService.login(dto.email, dto.password);
   }
-
+  @Post('/forgot-password')
+  async forgotPassword(@Body('email') email: string) {
+    return this.authService.sendOtp(email);
+  }
+  @Post('/reset-password')
+  async resetPassword(
+    @Body('email') email: string,
+    @Body('otp') otp: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    return this.authService.resetPassword(email, otp, newPassword);
+  }
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('/change-password')
+  async changePassword(
+    @Req() req,
+    @Body('oldPassword') oldPassword: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    return this.authService.changePassword(
+      req.user.id,
+      oldPassword,
+      newPassword,
+    );
+  }
   @UseGuards(AuthGuard('jwt'))
   @Get('/me')
   profile(@Req() req) {

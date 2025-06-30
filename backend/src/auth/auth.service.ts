@@ -38,7 +38,35 @@ export class AuthService {
       message: 'Registered successfully',
     };
   }
+  async login(email: string, password: string) {
+    const user = await this.userModel.findOne({ where: { email } });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
 
+    const isPasswordMatching = await bcrypt.compare(password, user.password);
+    if (!isPasswordMatching) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+    const token = this.jwtService.sign(payload);
+
+    return {
+      message: 'Login successful',
+      access_token: token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
   async updateRecord(
     adminId: number,
     userId: number,
@@ -84,36 +112,22 @@ export class AuthService {
   async getAll() {
     return this.userModel.findAll();
   }
-  async login(email: string, password: string) {
-    const user = await this.userModel.findOne({ where: { email } });
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
+  async changePassword(
+    userId: number,
+    oldPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.userModel.findByPk(userId);
+    if (!user) throw new BadRequestException('User not found');
 
-    const isPasswordMatching = await bcrypt.compare(password, user.password);
-    if (!isPasswordMatching) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) throw new UnauthorizedException('Old password is incorrect');
 
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-    const token = this.jwtService.sign(payload);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await user.update({ password: hashedPassword });
 
-    return {
-      message: 'Login successful',
-      access_token: token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    };
+    return { message: 'Password changed successfully' };
   }
-
   async sendOtp(email: string) {
     const user = await this.userModel.findOne({ where: { email } });
     if (!user) {
@@ -141,7 +155,6 @@ export class AuthService {
     await transporter.sendMail(mailOptions);
     return { message: 'OTP sent to email' };
   }
-
   async resetPassword(email: string, otp: string, newPassword: string) {
     const user = await this.userModel.findOne({ where: { email } });
     if (!user) {
