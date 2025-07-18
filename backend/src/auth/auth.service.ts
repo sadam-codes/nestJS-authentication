@@ -17,77 +17,92 @@ export class AuthService {
     @InjectModel(User) private userModel: typeof User,
     private jwtService: JwtService,
   ) {}
-  // Register
-  async register(name: string, email: string, password: string, otp?: string) {
-    if (!otp) {
-      const userExists = await this.userModel.findOne({ where: { email } });
-      if (userExists) {
-        throw new BadRequestException('Email already exists');
-      }
 
-      const generatedOtp = Math.floor(
-        100000 + Math.random() * 900000,
-      ).toString();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+async register(name: string, email: string, password: string, otp?: string) {
+  if (!otp) {
+    const userExists = await this.userModel.findOne({ where: { email } });
+    if (userExists && userExists.status === 'active') {
+      throw new BadRequestException('Email already exists');
+    }
+
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    // Hash the password before saving
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    if (userExists && userExists.status === 'pending') {
+      await userExists.update({
+        name,
+        password: hashedPassword,
+        otp: generatedOtp,
+        otpExpiry: expiresAt,
+      });
+    } else {
+      // Create a new pending user
       await this.userModel.create({
         name,
         email,
-        password,
+        password: hashedPassword,
         role: 'user',
         otp: generatedOtp,
         otpExpiry: expiresAt,
         status: 'pending',
       });
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
+    }
 
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Your Registration OTP Code',
-        text: `Your OTP code is ${generatedOtp}. It expires in 5 minutes.`,
-      };
-      await transporter.sendMail(mailOptions);
-
-      return { message: 'OTP sent to email' };
-    }
-    const pendingUser = await this.userModel.findOne({
-      where: { email, status: 'pending' },
-    });
-    if (!pendingUser) {
-      throw new BadRequestException(
-        'Registration not found or already verified',
-      );
-    }
-    if (
-      !pendingUser.otp ||
-      pendingUser.otp !== otp ||
-      !pendingUser.otpExpiry ||
-      pendingUser.otpExpiry.getTime() < Date.now()
-    ) {
-      throw new BadRequestException('Invalid or expired OTP');
-    }
-    const hashedPassword = await bcrypt.hash(pendingUser.password, 10);
-    await pendingUser.update({
-      password: hashedPassword,
-      otp: null,
-      otpExpiry: null,
-      status: 'active',
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS, 
+      },
+      secure: true,
     });
 
-    return {
-      id: pendingUser.id,
-      name: pendingUser.name,
-      email: pendingUser.email,
-      role: pendingUser.role,
-      message: 'Registered successfully',
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Your Registration OTP Code',
+      text: `Your OTP code is ${generatedOtp}. It expires in 5 minutes.`,
     };
+    await transporter.sendMail(mailOptions);
+    return { message: 'OTP sent to email' };
   }
+
+  const pendingUser = await this.userModel.findOne({
+    where: { email, status: 'pending' },
+  });
+
+  if (!pendingUser) {
+    throw new BadRequestException('Registration not found or already verified');
+  }
+
+  if (
+    !pendingUser.otp ||
+    pendingUser.otp !== otp ||
+    !pendingUser.otpExpiry ||
+    pendingUser.otpExpiry.getTime() < Date.now()
+  ) {
+    throw new BadRequestException('Invalid or expired OTP');
+  }
+
+  // OTP verified → activate the account
+  await pendingUser.update({
+    otp: null,
+    otpExpiry: null,
+    status: 'active',
+  });
+
+  return {
+    id: pendingUser.id,
+    name: pendingUser.name,
+    email: pendingUser.email,
+    role: pendingUser.role,
+    message: 'Registered successfully',
+  };
+}
+
   async login(email: string, password: string) {
     const user = await this.userModel.findOne({ where: { email } });
     if (!user) {

@@ -6,9 +6,13 @@ import {
   Table,
   Unique,
   AllowNull,
+  Default,
 } from 'sequelize-typescript';
 
-@Table
+@Table({
+  tableName: 'users',
+  timestamps: true,
+})
 export class User extends Model {
   @PrimaryKey
   @Column({
@@ -35,9 +39,9 @@ export class User extends Model {
     allowNull: false,
   })
   declare password: string;
+
   @Column({
-    type: DataType.ENUM,
-    values: ['user', 'admin'],
+    type: DataType.ENUM('user', 'admin'),
     allowNull: false,
     defaultValue: 'user',
   })
@@ -49,10 +53,11 @@ export class User extends Model {
     defaultValue: null,
   })
   declare otp: string | null;
-  @AllowNull(true)
+
+  @Default('pending')
   @Column({
-    type: DataType.STRING,
-    defaultValue: 'active', 
+    type: DataType.ENUM('pending', 'active'),
+    allowNull: false,
   })
   declare status: 'pending' | 'active';
 
@@ -61,5 +66,5 @@ export class User extends Model {
     type: DataType.DATE,
     defaultValue: null,
   })
-  declare otpExpiry: Date;
+  declare otpExpiry: Date | null;
 }
